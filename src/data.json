@@ -1,1 +1,24 @@
-{ "account_information": { "username": "admin", "password": "123" }, "settings": { "ip-address": "192.168.1.23", "logging-level": "debug", "wireless-mode": "access-point", "wireless-SSID": "voyance", "wireless-Pass-Phrase": "123456789" }, "firmware": { "filename": "baitest1.cpp", "path": "uploads\/baitest1.cpp" } }
+{
+  "account_information": {
+    "username": "admin",
+    "password": "123"
+  },
+  "settings": {
+    "ip-address": "192.168.1.23",
+    "logging-level": "debug",
+    "wireless-mode": "access-point",
+    "wireless-SSID": "voyance",
+    "wireless-Pass-Phrase": "123456789"
+  },
+  "firmware": {
+    "filename": "baitest1.cpp",
+    "path": "uploads/baitest1.cpp"
+  },
+  "information": {
+    "hardware_version": "v1.0",
+    "software_version": "v2.3",
+    "fpga_version": "v1.2",
+    "model": "ABC123",
+    "serial_number": "SN456789"
+  }
+}
