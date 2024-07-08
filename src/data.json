@@ -1,0 +1,1 @@
+{ "account_information": { "username": "admin", "password": "123" }, "settings": { "ip-address": "192.168.1.23", "logging-level": "debug", "wireless-mode": "access-point", "wireless-SSID": "voyance", "wireless-Pass-Phrase": "123456789" }, "firmware": { "filename": "baitest1.cpp", "path": "uploads\/baitest1.cpp" } }
