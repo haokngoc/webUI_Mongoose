@@ -142,6 +142,52 @@ int compare_username_password(const char *username, const char *password) {
         return 1;
     }
 }
+void update_password_in_json(const char *new_password) {
+    FILE *file = fopen("/home/root/data.json", "r+");
+    if (file == NULL) {
+        spdlog::error("Failed to open data.json file");
+        perror("Failed to open data.json file");
+        return;
+    }
+
+    // Determine the size of the file
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
+
+    // Read the content of the file into a buffer
+    char *buffer = (char *)malloc(file_size + 1);
+    if (buffer == NULL) {
+        fclose(file);
+        spdlog::error("Memory allocation failed");
+        perror("Memory allocation failed");
+        return;
+    }
+    fread(buffer, 1, file_size, file);
+    buffer[file_size] = '\0';
+
+    // Find the position of "password" in the JSON file
+    char *password_start = strstr(buffer, "\"password\": \"");
+    if (password_start != NULL) {
+        password_start += strlen("\"password\": \"");
+        char *password_end = strchr(password_start, '\"');
+        if (password_end != NULL) {
+            // Copy the new password into the old password's position
+            strncpy(password_start, new_password, password_end - password_start);
+        }
+    } else {
+        spdlog::error("Failed to find password field in JSON");
+        printf("Failed to find password field in JSON\n");
+    }
+
+    // Set the file pointer to the beginning and rewrite the updated content
+    rewind(file);
+    fwrite(buffer, 1, file_size, file);
+
+    // Free memory and close the file
+    free(buffer);
+    fclose(file);
+}
 
 // Event handler for HTTP connection
 static void cb(struct mg_connection *c, int ev, void *ev_data) {
@@ -173,7 +219,7 @@ static void cb(struct mg_connection *c, int ev, void *ev_data) {
             // Handle /update
         	char ip_address[100], logging_level[100], wireless_mode[100], wireless_SSID[100], wireless_passphrase[100];
         	 // Parse form data
-			mg_http_get_var(&hm->body, "ip-address", ip_address, sizeof(ip_address));
+			mg_http_get_var(&hm->body, "ip-address-manual", ip_address, sizeof(ip_address));
 			mg_http_get_var(&hm->body, "logging-level", logging_level, sizeof(logging_level));
 			mg_http_get_var(&hm->body, "wireless-mode", wireless_mode, sizeof(wireless_mode));
 			mg_http_get_var(&hm->body, "wireless-SSID", wireless_SSID, sizeof(wireless_SSID));
@@ -206,7 +252,15 @@ static void cb(struct mg_connection *c, int ev, void *ev_data) {
 				mg_http_reply(c, 500, "", "Error updating data.");
 			}
         } else if (mg_http_match_uri(hm, "/change_password")) {
+
             // Handle /change_password
+        	char password[100];
+			// mg_http_get_var(&hm->body, "username", username, sizeof(username));
+			mg_http_get_var(&hm->body, "new_password", password, sizeof(password));
+			update_password_in_json(password);
+
+			// Redirect to a success page or perform other actions if necessary
+			mg_http_reply(c, 200, "", "<html><head><script>alert('Password changed successfully!'); window.location.href = 'change_password.html';</script></head><body></body></html>");
         } else if (mg_http_match_uri(hm, "/upload")) {
             // Handle /upload
         } else if (mg_http_match_uri(hm, "/download")) {
@@ -261,7 +315,7 @@ static void usage(const char *prog) {
 }
 
 int main(int argc, char *argv[]) {
-	 auto file_logger = spdlog::basic_logger_mt("file_logger", FILE_NAME_LOG);
+	auto file_logger = spdlog::basic_logger_mt("file_logger", FILE_NAME_LOG);
 	spdlog::set_default_logger(file_logger);
 	spdlog::set_level(spdlog::level::info); // Set global log level to info
 
