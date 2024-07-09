@@ -58,17 +58,18 @@
             <form action="/update" method="post">
                 <p><strong>Network Settings</strong></p>
                 <div>
-                    <label for="ip-address">IP Address:</label>
-                    <input type="text" id="ip-address-ap" name="ip-address-ap" value="192.168.10.1" readonly>
+                    <div style="display: inline-block;">
+                        <label for="ip-address">IP Address:</label>
+                        <input type="text" id="ip-address-ap" name="ip-address-ap" value="192.168.10.1" readonly style="display: none; border: none; outline: none;">
+
+                        <select id="ip-select" name="ip-select" style="display: none;">
+                            <option value="auto">Auto</option>
+                            <option value="manual">Manual</option>
+                        </select>
+                    </div>
+                    <input type="text" id="ip-address-manual" name="ip-address-manual" pattern="(?:[0-9]{1,3}\.){3}[0-9]{1,3}" title="Enter a valid IP address" required style="display: none;">
                 </div>
                 <br>
-                <div class="ip-settings">
-                    <label for="auto-ip">Auto</label>
-                    <input type="text" id="ip-address-auto" name="ip-address-auto" pattern="(?:[0-9]{1,3}\.){3}[0-9]{1,3}" title="Enter a valid IP address" required>
-    
-                    <label for="manual-ip">Manual</label>
-                    <input type="text" id="ip-address-manual" name="ip-address-manual" pattern="(?:[0-9]{1,3}\.){3}[0-9]{1,3}" title="Enter a valid IP address" required>
-                </div>
     
                 <p><strong>Logging Settings</strong></p>
                 <label for="logging-level">Logging Level:</label>
@@ -105,8 +106,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var wirelessModeRadio = document.getElementsByName('wireless-mode');
-            var ipSettings = document.querySelector('.ip-settings');
-            var ipAddressAutoInput = document.getElementById('ip-address-auto');
+            var ipSelect = document.getElementById('ip-select');
             var ipAddressManualInput = document.getElementById('ip-address-manual');
             var ipAddressAPInput = document.getElementById('ip-address-ap');
             var wirelessSettings = document.querySelector('.wireless-settings');
@@ -124,60 +124,55 @@
                 if (selectedMode === 'station') {
                     wirelessSSIDInput.value = '';
                     wirelessPassPhraseInput.value = '';
-                    ipSettings.style.display = 'block';
+                    ipSelect.style.display = 'block';
                     wirelessSettings.style.display = 'block';
                     ipAddressAPInput.style.display = 'none';
+                    ipAddressManualInput.style.display = ipSelect.value === 'manual' ? 'block' : 'none';
                     wirelessSSIDInput.classList.remove('access-point');
                     wirelessPassPhraseInput.classList.remove('access-point');
-
-                    ipAddressAPInput.value = '';
-                    ipAddressAPInput.readOnly = false;
-                    ipAddressAPInput.style.border = '';
-                    ipAddressAPInput.style.outline = '';
+                    wirelessSSIDInput.readOnly = false;
+                    wirelessPassPhraseInput.readOnly = false;
                 } else if (selectedMode === 'access-point') {
-
                     wirelessSSIDInput.value = 'voyance';
                     wirelessPassPhraseInput.value = '123456789';
+                    ipSelect.style.display = 'none';
+                    ipAddressManualInput.style.display = 'none';
+                    ipAddressAPInput.style.display = 'block';
+                    wirelessSettings.style.display = 'block';
                     wirelessSSIDInput.classList.add('access-point');
                     wirelessPassPhraseInput.classList.add('access-point');
-
-                    ipSettings.style.display = 'none';
-                    wirelessSettings.style.display = 'block';
-                    ipAddressAPInput.style.display = 'block';
-                    ipAddressAPInput.value = '192.168.10.1';
-                    ipAddressAPInput.readOnly = true;
-
-                    ipAddressAPInput.style.border = 'none';
-                    ipAddressAPInput.style.outline = 'none';
+                    wirelessSSIDInput.readOnly = true;
+                    wirelessPassPhraseInput.readOnly = true;
                 }
-                wirelessSSIDInput.readOnly = (selectedMode === 'access-point');
-                wirelessPassPhraseInput.readOnly = (selectedMode === 'access-point');
             }
     
             wirelessModeRadio.forEach(function (radio) {
                 radio.addEventListener('change', updateSettingsVisibility);
             });
     
-            updateSettingsVisibility(); // Set initial visibility based on default checked radio
-        });
-    
-        fetch('data.json')
-            .then(response => response.json())
-            .then(data => {
-                // document.getElementById('ip-address-auto').value = data.settings['ip-address-auto'];
-                // document.getElementById('ip-address-manual').value = data.settings['ip-address-manual'];
-                // document.getElementById('ip-address-ap').value = data.settings['ip-address-ap'];
-                document.getElementById('ip-address-manual').value = data.settings['ip-address'];
-                document.getElementById('logging-level').value = data.settings['logging-level'];
-                document.getElementById('wireless-SSID').value = data.settings['wireless-SSID'];
-                document.getElementById('wireless-Pass-Phrase').value = data.settings['wireless-Pass-Phrase'];
-    
-                if (data.settings['wireless-mode'] === 'station') {
-                    document.getElementById('station').checked = true;
-                } else if (data.settings['wireless-mode'] === 'access-point') {
-                    document.getElementById('access-point').checked = true;
-                }
+            ipSelect.addEventListener('change', function() {
+                ipAddressManualInput.style.display = ipSelect.value === 'manual' ? 'block' : 'none';
             });
+    
+            updateSettingsVisibility(); // Set initial visibility based on default checked radio
+    
+            fetch('data.json')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('ip-address-manual').value = data.settings['ip-address'];
+                    document.getElementById('logging-level').value = data.settings['logging-level'];
+                    document.getElementById('wireless-SSID').value = data.settings['wireless-SSID'];
+                    document.getElementById('wireless-Pass-Phrase').value = data.settings['wireless-Pass-Phrase'];
+    
+                    if (data.settings['wireless-mode'] === 'station') {
+                        document.getElementById('station').checked = true;
+                    } else if (data.settings['wireless-mode'] === 'access-point') {
+                        document.getElementById('access-point').checked = true;
+                    }
+    
+                    updateSettingsVisibility();
+                });
+        });
     </script>
 </body>
 </html>
