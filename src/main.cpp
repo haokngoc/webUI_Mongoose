@@ -143,7 +143,7 @@ int compare_username_password(const char *username, const char *password) {
     }
 }
 void update_password_in_json(const char *new_password) {
-    FILE *file = fopen("/home/root/data.json", "r+");
+    FILE *file = fopen(FILE_NAME_JSON, "r+");
     if (file == NULL) {
         spdlog::error("Failed to open data.json file");
         perror("Failed to open data.json file");
