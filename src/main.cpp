@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <signal.h>
 #include <json-c/json.h>
@@ -9,12 +12,15 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include "JSONParser.h"
 
 #define FILE_NAME_JSON "/home/root/data.json"
 #define FILE_NAME_LOGIN "/home/root/login.html"
 #define FILE_NAME_SETTINGS "/home/root/settings.html"
 #define FILE_NAME_HOME "/home/root/home.html"
 #define FILE_NAME_LOG "/home/root/file.txt"
+
+#define FILE_NAME_INFOMATION "/home/root/information.json"
 
 // Static variables
 static int s_debug_level = MG_LL_INFO;
@@ -28,62 +34,6 @@ static int s_signo;
 // Signal handler
 static void signal_handler(int signo) {
     s_signo = signo;
-}
-
-int update_json_data(const char *ip_address, const char *logging_level, const char *wireless_mode, const char *wireless_SSID, const char *wireless_passphrase) {
-    const char *json_file_name = FILE_NAME_JSON;
-    FILE *fp = fopen(json_file_name, "r");
-    if (!fp) {
-        spdlog::error("Cannot open file: {}", json_file_name);
-        return 1;
-    }
-
-    fseek(fp, 0, SEEK_END);
-    long file_size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-
-    char *json_str = (char *)malloc(file_size + 1);
-    fread(json_str, 1, file_size, fp);
-    fclose(fp);
-
-    struct json_object *json_obj = json_tokener_parse(json_str);
-
-    if (!json_obj) {
-        spdlog::error("Error parsing JSON.");
-        free(json_str);
-        return 1;
-    }
-
-    struct json_object *settings_obj;
-    if (!json_object_object_get_ex(json_obj, "settings", &settings_obj)) {
-        spdlog::error("No 'settings' object in JSON.");
-        json_object_put(json_obj);
-        free(json_str);
-        return 1;
-    }
-
-    json_object_object_add(settings_obj, "ip-address", json_object_new_string(ip_address));
-    json_object_object_add(settings_obj, "logging-level", json_object_new_string(logging_level));
-    json_object_object_add(settings_obj, "wireless-mode", json_object_new_string(wireless_mode));
-    json_object_object_add(settings_obj, "wireless-SSID", json_object_new_string(wireless_SSID));
-    json_object_object_add(settings_obj, "wireless-Pass-Phrase", json_object_new_string(wireless_passphrase));
-
-    fp = fopen(json_file_name, "w");
-    if (!fp) {
-        spdlog::error("Cannot open file for writing: {}", json_file_name);
-        json_object_put(json_obj);
-        free(json_str);
-        return 1;
-    }
-
-    const char *updated_json_str = json_object_to_json_string(json_obj);
-    fprintf(fp, "%s\n", updated_json_str);
-
-    fclose(fp);
-    json_object_put(json_obj);
-    free(json_str);
-
-    return 0;
 }
 
 int compare_username_password(const char *username, const char *password) {
@@ -195,6 +145,14 @@ static void cb(struct mg_connection *c, int ev, void *ev_data) {
     if (ev == MG_EV_HTTP_MSG) {
         struct mg_http_message *hm = (struct mg_http_message *)ev_data;
         spdlog::info("Received request for: {}", std::string(hm->uri.ptr, hm->uri.len));
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            std::cout << "Current working dir: " << cwd << std::endl;
+        } else {
+            std::cerr << "getcwd() error\n";
+        }
+
+        std::string filePath = std::string(cwd) + "/settings.html";
 
         if (mg_http_match_uri(hm, "/")) {
             struct mg_http_serve_opts opts = {0};
@@ -211,46 +169,56 @@ static void cb(struct mg_connection *c, int ev, void *ev_data) {
             } else {
                 mg_http_reply(c, 401, "", "Unauthorized");
             }
-        } else if(mg_http_match_uri(hm, "/settings")) {
-        	struct mg_http_serve_opts opts = {0};
-			opts.root_dir = s_root_dir;
-			mg_http_serve_file(c, hm, FILE_NAME_SETTINGS, &opts);
+        } else if(mg_http_match_uri(hm, "/")) {
+//        	struct mg_http_serve_opts opts = {0};
+//			opts.root_dir = s_root_dir;
+//			mg_http_serve_file(c, hm, FILE_NAME_SETTINGS, &opts);
+        	std::ifstream htmlFile(filePath);
+			if (htmlFile.is_open()) {
+				std::stringstream buffer;
+				buffer << htmlFile.rdbuf();
+				std::string response = buffer.str();
+				mg_http_reply(c, 200, "Content-Type: text/html\r\n", "%s", response.c_str());
+
+			} else {
+				std::cerr << "Error: Could not open " << filePath << std::endl;
+				std::string response = "Error: Could not open settings.html";
+				mg_http_reply(c, 500, "Content-Type: text/plain\r\n", "%s", response.c_str());
+			}
+
         } else if (mg_http_match_uri(hm, "/update")) {
             // Handle /update
         	char ip_address[100], logging_level[100], wireless_mode[100], wireless_SSID[100], wireless_passphrase[100];
-        	 // Parse form data
+        	char ip_select[100], gateway[100], dns[100];
+        	// Parse form data
 			mg_http_get_var(&hm->body, "ip-address-manual", ip_address, sizeof(ip_address));
 			mg_http_get_var(&hm->body, "logging-level", logging_level, sizeof(logging_level));
 			mg_http_get_var(&hm->body, "wireless-mode", wireless_mode, sizeof(wireless_mode));
 			mg_http_get_var(&hm->body, "wireless-SSID", wireless_SSID, sizeof(wireless_SSID));
 			mg_http_get_var(&hm->body, "wireless-Pass-Phrase", wireless_passphrase, sizeof(wireless_passphrase));
+			mg_http_get_var(&hm->body, "gateway-manual", gateway, sizeof(gateway));
+			mg_http_get_var(&hm->body, "dns-manual", dns, sizeof(dns));
+			mg_http_get_var(&hm->body, "ip-select", ip_select, sizeof(ip_select));
 			// update JSON data
 			spdlog::info("Wireless mode: {}", wireless_mode);
+			spdlog::info("ip-select: {}",ip_select);
+			std::cout << "mode " << wireless_mode << std::endl;
 
-			if(update_json_data(ip_address, logging_level, wireless_mode, wireless_SSID, wireless_passphrase) == 0) {
-				if(strcmp(wireless_mode,"station") == 0) {
-					// handle station
-					int res = settings.switchToSTAMode();
-					if(res == 0) {
-						spdlog::info("Switched successfully to STA mode");
-					} else {
-						spdlog::error("Failed to switch to STA mode");
-					}
-				} else {
-					// handle access-mode
-					int res = settings.switchToAPMode();
-					if(res == 0) {
-						spdlog::info("Switched successfully to AP mode");
-					} else {
-						spdlog::error("Failed to switch to AP mode");
-					}
-				}
-				struct mg_http_serve_opts opts = {0};
-				opts.root_dir = s_root_dir;
-				mg_http_serve_file(c, hm, FILE_NAME_SETTINGS, &opts);
-			} else {
-				mg_http_reply(c, 500, "", "Error updating data.");
+			std::cout << "select: " << ip_select << std::endl;
+
+			if(strcmp(wireless_mode,"station") == 0) {
+
+				settings.updateDataJsonSTA(ip_address,logging_level,wireless_mode,wireless_SSID,wireless_passphrase,ip_select);
+				settings.switchToSTAMode(wireless_SSID,wireless_passphrase,ip_address,gateway,dns,ip_select);
+
 			}
+			else {
+				settings.switchToAPMode();
+
+			}
+			struct mg_http_serve_opts opts = {0};
+			opts.root_dir = s_root_dir;
+			mg_http_serve_file(c, hm, FILE_NAME_SETTINGS, &opts);
         } else if (mg_http_match_uri(hm, "/change_password")) {
 
             // Handle /change_password
@@ -314,7 +282,17 @@ static void usage(const char *prog) {
     exit(EXIT_FAILURE);
 }
 
+
+
+
 int main(int argc, char *argv[]) {
+	Settings settings;
+	int ret = settings.initializeJson();
+	std::cout<< "ret: " << ret << std::endl;
+	if(ret == 1) {
+		settings.switchToAPMode();
+	}
+
 	auto file_logger = spdlog::basic_logger_mt("file_logger", FILE_NAME_LOG);
 	spdlog::set_default_logger(file_logger);
 	spdlog::set_level(spdlog::level::info); // Set global log level to info
@@ -322,6 +300,8 @@ int main(int argc, char *argv[]) {
 //	auto console_logger = spdlog::stdout_color_mt("console");
 //	spdlog::set_default_logger(console_logger);
 //	spdlog::set_level(spdlog::level::info);
+
+
 
     char path[MG_PATH_MAX] = ".";
     struct mg_mgr mgr;
@@ -372,4 +352,5 @@ int main(int argc, char *argv[]) {
     spdlog::info("Exiting on signal {}", s_signo);
     spdlog::drop_all();
     return 0;
+
 }
