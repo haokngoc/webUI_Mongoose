@@ -9,6 +9,8 @@
 #include <cstring>
 #include <unistd.h>
 #include <fstream>
+#include "JSONParser.h"
+#include <spdlog/sinks/stdout_color_sinks.h>
 #ifndef SETTINGS_H_
 #define SETTINGS_H_
 
@@ -21,12 +23,18 @@ private:
     std::string wireless_mode;
     std::string wireless_ssid;
     std::string wireless_pass_phrase;
+    JSONParser parser;
 
 public:
-    int switchToSTAMode();
+    int switchToSTAMode(const std::string& ssid, const std::string& password, const std::string& static_ip, const std::string& gateway, const std::string& dns, const std::string& mode);
     int switchToAPMode();
+    int initializeJson();
+    int updateDataJsonSTA(const std::string& ip_address, const std::string& logging_level,
+    		const std::string& wireless_mode, const std::string& wireless_SSID,
+			const std::string& wireless_passphrase, const std::string& mode);
+    int updateDataJsonAp();
 
-	const std::string& getIpAddress() const {
+    const std::string& getIpAddress() const {
 		return ip_address;
 	}
 
